@@ -1,0 +1,73 @@
+# 简单工作流示例：数据处理和格式化
+
+id: simple_data_pipeline
+name: 简单数据处理流水线
+description: 演示基本的数据处理流程
+version: "1.0.0"
+
+inputs:
+  - name: raw_data
+    type: string
+    required: true
+    description: 原始数据
+
+  - name: format
+    type: string
+    required: false
+    default: "json"
+    description: 输出格式
+
+outputs:
+  - name: processed_result
+    type: string
+    description: 处理后的结果
+    source: "${format_data.result}"
+
+nodes:
+  - id: validate_input
+    type: code
+    name: 验证输入
+    description: 验证输入数据有效性
+    code: |
+      data = inputs.get("raw_data", "")
+      if not data:
+          raise ValueError("raw_data is required")
+      outputs["valid"] = True
+      outputs["length"] = len(data)
+    timeout: 10
+
+  - id: process_data
+    type: code
+    name: 处理数据
+    description: 处理数据
+    inputs:
+      data: "${inputs.raw_data}"
+    code: |
+      data = inputs["data"]
+      # 简单的数据处理：转大写并添加时间戳
+      from datetime import datetime
+      processed = f"[{datetime.utcnow().isoformat()}] {data.upper()}"
+      outputs["processed"] = processed
+    timeout: 10
+
+  - id: format_data
+    type: template
+    name: 格式化输出
+    description: 格式化最终结果
+    inputs:
+      processed: "${process_data.processed}"
+      format_type: "${inputs.format}"
+    template: |
+      {% if format_type == "json" %}
+      {"result": "{{ processed }}", "status": "ok"}
+      {% else %}
+      Result: {{ processed }}
+      Status: OK
+      {% endif %}
+    timeout: 10
+
+edges:
+  - from: validate_input
+    to: process_data
+  - from: process_data
+    to: format_data
