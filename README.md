@@ -82,12 +82,21 @@ pip install -e ".[dev]"
 ### 启动服务
 
 ```bash
-# 使用启动脚本
+# 启动 API 服务器
 ./start.sh
 
-# 或手动启动
-uvicorn forgeclaw.api.main:app --reload
+# 或同时启动 Web UI
+./start.sh --web
+
+# 手动启动
+uvicorn forgeclaw.api.main:app --reload        # API
+npm run dev                                    # Web UI (在 web/ 目录)
 ```
+
+服务启动后：
+- API 服务: http://localhost:8000
+- API 文档: http://localhost:8000/docs
+- Web UI: http://localhost:5173
 
 ### API 文档
 
@@ -111,7 +120,7 @@ curl -X POST http://localhost:8000/api/v1/executions/my_workflow \
 
 ```
 forgeclaw/
-├── src/forgeclaw/
+├── src/forgeclaw/        # 后端 (Python)
 │   ├── api/              # REST API (FastAPI)
 │   ├── assets/           # 资产管理
 │   ├── engine/           # 工作流执行引擎
@@ -120,6 +129,13 @@ forgeclaw/
 │   ├── planner/          # LLM 规划服务
 │   ├── scheduler/        # 定时任务
 │   └── skills/           # Skill 系统
+├── web/                  # 前端 (React + TypeScript)
+│   ├── src/
+│   │   ├── components/   # 可复用组件
+│   │   ├── pages/        # 页面组件
+│   │   ├── api/          # API 客户端
+│   │   └── types/        # TypeScript 类型
+│   └── dist/             # 构建输出
 ├── examples/             # 示例工作流
 ├── tests/                # 测试
 └── docs/                 # 文档
@@ -154,11 +170,15 @@ forgeclaw/
 - ✅ 结果回流到记忆
 - ✅ 资产管理（版本控制、溯源、共享）
 
-### Phase 4: UI 与体验 🚧
-- [ ] Web UI（React）
-- [ ] 工作流可视化编辑器
-- [ ] 执行监控面板
-- [ ] 对话界面
+### Phase 4: UI 与体验 ✅
+- ✅ React 前端（TypeScript + Tailwind CSS）
+- ✅ ReactFlow 工作流可视化编辑器
+- ✅ 节点拖拽与连线编辑
+- ✅ 节点配置面板（Inputs/Outputs/Advanced）
+- ✅ AI Planner 界面（4W1H 分析可视化）
+- ✅ 执行监控面板（实时状态、日志、节点输出）
+- ✅ 定时任务管理器
+- ✅ 资产管理界面
 
 ## 核心概念
 
@@ -266,7 +286,7 @@ v2 = await asset_manager.create_version(asset.id, new_content, "Added charts")
 | **执行引擎** | 自研，状态机驱动，异步执行 |
 | **存储** | 文件（MVP）→ PostgreSQL（生产） |
 | **部署** | Docker, Docker Compose |
-| **前端** | React（Phase 4） |
+| **前端** | React 18, TypeScript, Tailwind CSS, ReactFlow |
 
 ## 设计理念
 
