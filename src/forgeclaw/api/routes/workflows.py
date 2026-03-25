@@ -34,7 +34,14 @@ async def get_workflow(workflow_id: str) -> WorkflowDefinition:
 async def list_workflows() -> list[dict[str, Any]]:
     """列出所有工作流."""
     return [
-        {"id": wf.id, "name": wf.name, "version": wf.version}
+        {
+            "id": wf.id,
+            "name": wf.name,
+            "description": wf.description,
+            "version": wf.version,
+            "nodes": wf.nodes,
+            "edges": wf.edges,
+        }
         for wf in _workflows.values()
     ]
 
