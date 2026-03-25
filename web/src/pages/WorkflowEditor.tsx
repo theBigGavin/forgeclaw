@@ -12,6 +12,8 @@ import ReactFlow, {
   MiniMap,
   Panel,
   BackgroundVariant,
+  Handle,
+  Position,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import {
@@ -37,11 +39,13 @@ const nodeTypes = {
 function SkillNode({ data }: { data: any }) {
   return (
     <div className="px-4 py-3 bg-white border-2 border-blue-500 rounded-lg shadow-sm min-w-[150px]">
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-blue-500" />
       <div className="flex items-center gap-2 mb-1">
         <Settings className="w-4 h-4 text-blue-500" />
         <span className="font-medium text-sm">{data.name}</span>
       </div>
       <p className="text-xs text-gray-500">{data.skill_id}</p>
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-blue-500" />
     </div>
   )
 }
@@ -49,11 +53,13 @@ function SkillNode({ data }: { data: any }) {
 function CodeNode({ data }: { data: any }) {
   return (
     <div className="px-4 py-3 bg-white border-2 border-purple-500 rounded-lg shadow-sm min-w-[150px]">
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-purple-500" />
       <div className="flex items-center gap-2 mb-1">
         <Settings className="w-4 h-4 text-purple-500" />
         <span className="font-medium text-sm">{data.name}</span>
       </div>
       <p className="text-xs text-gray-500">Code Execution</p>
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-purple-500" />
     </div>
   )
 }
@@ -61,11 +67,13 @@ function CodeNode({ data }: { data: any }) {
 function TemplateNode({ data }: { data: any }) {
   return (
     <div className="px-4 py-3 bg-white border-2 border-green-500 rounded-lg shadow-sm min-w-[150px]">
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-green-500" />
       <div className="flex items-center gap-2 mb-1">
         <Settings className="w-4 h-4 text-green-500" />
         <span className="font-medium text-sm">{data.name}</span>
       </div>
       <p className="text-xs text-gray-500">Template</p>
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-green-500" />
     </div>
   )
 }
@@ -73,11 +81,13 @@ function TemplateNode({ data }: { data: any }) {
 function DecisionNode({ data }: { data: any }) {
   return (
     <div className="px-4 py-3 bg-white border-2 border-yellow-500 rounded-lg shadow-sm min-w-[150px]">
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-yellow-500" />
       <div className="flex items-center gap-2 mb-1">
         <AlertCircle className="w-4 h-4 text-yellow-500" />
         <span className="font-medium text-sm">{data.name}</span>
       </div>
       <p className="text-xs text-gray-500">Decision</p>
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-yellow-500" />
     </div>
   )
 }
