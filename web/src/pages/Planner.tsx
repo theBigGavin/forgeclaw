@@ -24,10 +24,21 @@ export default function Planner() {
         goal,
         context: {},
       })
-      setResult(response.data)
-      toast.success('Plan generated!')
-    } catch (error) {
-      toast.error('Failed to generate plan')
+      const data = response.data
+      
+      // Check for error in response
+      if ((data as any).error) {
+        toast.error(`Planning failed: ${(data as any).error}`)
+      } else if (!data.draft) {
+        toast.error('Planning returned empty result')
+      } else {
+        setResult(data)
+        toast.success('Plan generated!')
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.error || error.message || 'Unknown error'
+      toast.error(`Failed to generate plan: ${message}`)
+      console.error('Planning error:', error)
     } finally {
       setPlanning(false)
     }

@@ -131,7 +131,11 @@ class PlannerService:
         """解析 LLM 的 JSON 响应."""
         # 尝试直接解析
         try:
-            return json.loads(response)
+            data = json.loads(response)
+            # 处理可能的嵌套结构
+            if "workflow_draft" in data:
+                return data["workflow_draft"]
+            return data
         except json.JSONDecodeError:
             pass
 
@@ -141,7 +145,10 @@ class PlannerService:
             end = response.find("```", start)
             if end > start:
                 try:
-                    return json.loads(response[start:end].strip())
+                    data = json.loads(response[start:end].strip())
+                    if "workflow_draft" in data:
+                        return data["workflow_draft"]
+                    return data
                 except json.JSONDecodeError:
                     pass
 
@@ -151,7 +158,10 @@ class PlannerService:
             end = response.find("```", start)
             if end > start:
                 try:
-                    return json.loads(response[start:end].strip())
+                    data = json.loads(response[start:end].strip())
+                    if "workflow_draft" in data:
+                        return data["workflow_draft"]
+                    return data
                 except json.JSONDecodeError:
                     pass
 
