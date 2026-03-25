@@ -11,6 +11,8 @@ export default function Planner() {
   const [confirming, setConfirming] = useState(false)
 
   const handlePlan = async () => {
+    if (planning) return // Prevent double submission
+    
     if (!goal.trim()) {
       toast.error('Please enter your goal')
       return
@@ -45,6 +47,7 @@ export default function Planner() {
   }
 
   const handleConfirm = async () => {
+    if (confirming) return // Prevent double submission
     if (!result) return
 
     setConfirming(true)
