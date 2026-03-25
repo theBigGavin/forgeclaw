@@ -7,6 +7,7 @@ const client = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 120000, // 120 seconds timeout for LLM planning
 })
 
 // API 版本前缀
