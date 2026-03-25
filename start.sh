@@ -61,6 +61,12 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Activate virtual environment if exists
+if [ -f ".venv/bin/activate" ]; then
+    echo -e "${YELLOW}📦 Activating virtual environment...${NC}"
+    source .venv/bin/activate
+fi
+
 # Check if Node.js is available (for web UI)
 if [ "$WEB_UI" = true ]; then
     if ! command -v npm &> /dev/null; then
