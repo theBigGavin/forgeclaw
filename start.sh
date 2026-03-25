@@ -119,7 +119,7 @@ if [ "$WEB_UI" = true ]; then
     npm run dev &
     WEB_PID=$!
     echo -e "${GREEN}✓ Web UI started (PID: $WEB_PID)${NC}"
-    echo -e "${BLUE}  → UI: http://localhost:5173${NC}"
+    echo -e "${BLUE}  → UI: http://localhost:3000${NC}"
     cd ..
 fi
 
