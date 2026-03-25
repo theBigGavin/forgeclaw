@@ -90,86 +90,103 @@ export default function Planner() {
       {/* Planning Result */}
       {result && (
         <div className="space-y-6">
+          {/* Error Display */}
+          {(result as any).error && (
+            <div className="card p-6 bg-red-50 border-red-200">
+              <h3 className="text-lg font-semibold text-red-700 mb-2">Planning Failed</h3>
+              <p className="text-red-600">{(result as any).error}</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Please check your API configuration in .env file and try again.
+              </p>
+            </div>
+          )}
+          
           {/* Analysis */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4">4W1H Analysis</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <span className="text-sm font-medium text-blue-700">What</span>
-                <p className="text-gray-800 mt-1">{result.draft.analysis.what}</p>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <span className="text-sm font-medium text-green-700">Why</span>
-                <p className="text-gray-800 mt-1">{result.draft.analysis.why}</p>
-              </div>
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <span className="text-sm font-medium text-purple-700">Who</span>
-                <p className="text-gray-800 mt-1">{result.draft.analysis.who}</p>
-              </div>
-              <div className="p-4 bg-yellow-50 rounded-lg">
-                <span className="text-sm font-medium text-yellow-700">When</span>
-                <p className="text-gray-800 mt-1">{result.draft.analysis.when}</p>
-              </div>
-              <div className="col-span-2 p-4 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">How</span>
-                <p className="text-gray-800 mt-1">{result.draft.analysis.how}</p>
+          {result.draft && result.draft.analysis && (
+            <div className="card p-6">
+              <h3 className="text-lg font-semibold mb-4">4W1H Analysis</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-blue-700">What</span>
+                  <p className="text-gray-800 mt-1">{result.draft.analysis.what}</p>
+                </div>
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <span className="text-sm font-medium text-green-700">Why</span>
+                  <p className="text-gray-800 mt-1">{result.draft.analysis.why}</p>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <span className="text-sm font-medium text-purple-700">Who</span>
+                  <p className="text-gray-800 mt-1">{result.draft.analysis.who}</p>
+                </div>
+                <div className="p-4 bg-yellow-50 rounded-lg">
+                  <span className="text-sm font-medium text-yellow-700">When</span>
+                  <p className="text-gray-800 mt-1">{result.draft.analysis.when}</p>
+                </div>
+                <div className="col-span-2 p-4 bg-gray-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">How</span>
+                  <p className="text-gray-800 mt-1">{result.draft.analysis.how}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Draft Preview */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4">Proposed Workflow</h3>
-            <div className="space-y-3">
-              {result.draft.nodes.map((node, index) => (
-                <div
-                  key={node.id}
-                  className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
-                >
-                  <span className="w-8 h-8 flex items-center justify-center bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
-                    {index + 1}
-                  </span>
-                  <div className="flex-1">
-                    <span className="font-medium">{node.name}</span>
-                    <span className="text-sm text-gray-500 ml-2">
-                      ({node.type})
+          {result.draft && (
+            <div className="card p-6">
+              <h3 className="text-lg font-semibold mb-4">Proposed Workflow</h3>
+              <div className="space-y-3">
+                {result.draft.nodes.map((node, index) => (
+                  <div
+                    key={node.id}
+                    className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+                  >
+                    <span className="w-8 h-8 flex items-center justify-center bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
+                      {index + 1}
                     </span>
-                    {node.skill_id && (
-                      <p className="text-xs text-gray-400">Skill: {node.skill_id}</p>
-                    )}
+                    <div className="flex-1">
+                      <span className="font-medium">{node.name}</span>
+                      <span className="text-sm text-gray-500 ml-2">
+                        ({node.type})
+                      </span>
+                      {node.skill_id && (
+                        <p className="text-xs text-gray-400">Skill: {node.skill_id}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Cost Estimate */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4">Cost Estimate</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-4 bg-gray-50 rounded-lg text-center">
-                <Clock className="w-6 h-6 mx-auto mb-2 text-primary-500" />
-                <span className="text-2xl font-bold text-gray-900">
-                  {result.cost_estimate.estimated_time_minutes}
-                </span>
-                <p className="text-sm text-gray-500">minutes</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg text-center">
-                <DollarSign className="w-6 h-6 mx-auto mb-2 text-green-500" />
-                <span className="text-2xl font-bold text-gray-900">
-                  ${result.cost_estimate.estimated_cost_usd.toFixed(3)}
-                </span>
-                <p className="text-sm text-gray-500">estimated cost</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg text-center">
-                <Sparkles className="w-6 h-6 mx-auto mb-2 text-purple-500" />
-                <span className="text-2xl font-bold text-gray-900">
-                  {result.cost_estimate.estimated_tokens.toLocaleString()}
-                </span>
-                <p className="text-sm text-gray-500">tokens</p>
+          {result.cost_estimate && (
+            <div className="card p-6">
+              <h3 className="text-lg font-semibold mb-4">Cost Estimate</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 bg-gray-50 rounded-lg text-center">
+                  <Clock className="w-6 h-6 mx-auto mb-2 text-primary-500" />
+                  <span className="text-2xl font-bold text-gray-900">
+                    {result.cost_estimate.estimated_time_minutes}
+                  </span>
+                  <p className="text-sm text-gray-500">minutes</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg text-center">
+                  <DollarSign className="w-6 h-6 mx-auto mb-2 text-green-500" />
+                  <span className="text-2xl font-bold text-gray-900">
+                    ${result.cost_estimate.estimated_cost_usd.toFixed(3)}
+                  </span>
+                  <p className="text-sm text-gray-500">estimated cost</p>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg text-center">
+                  <Sparkles className="w-6 h-6 mx-auto mb-2 text-purple-500" />
+                  <span className="text-2xl font-bold text-gray-900">
+                    {result.cost_estimate.estimated_tokens.toLocaleString()}
+                  </span>
+                  <p className="text-sm text-gray-500">tokens</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Risk Assessment */}
           {result.risk_assessment && result.risk_assessment.length > 0 && (
@@ -211,22 +228,24 @@ export default function Planner() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={() => setResult(null)}
-              className="btn-secondary px-8"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={confirming}
-              className="btn-primary px-8 flex items-center gap-2"
-            >
-              <CheckCircle className="w-5 h-5" />
-              {confirming ? 'Creating...' : 'Confirm & Create Workflow'}
-            </button>
-          </div>
+          {result.draft && (
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => setResult(null)}
+                className="btn-secondary px-8"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={confirming}
+                className="btn-primary px-8 flex items-center gap-2"
+              >
+                <CheckCircle className="w-5 h-5" />
+                {confirming ? 'Creating...' : 'Confirm & Create Workflow'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
