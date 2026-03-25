@@ -91,6 +91,13 @@ fi
 # Start API Server
 echo -e "${YELLOW}🚀 Starting API Server...${NC}"
 
+# 检查端口是否被占用
+if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  Port 8000 is in use. Stopping existing process...${NC}"
+    kill $(lsof -Pi :8000 -sTCP:LISTEN -t) 2>/dev/null || true
+    sleep 1
+fi
+
 # 确保 src 目录在 Python 路径中
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 
