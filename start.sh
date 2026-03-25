@@ -71,7 +71,12 @@ fi
 
 # Start API Server
 echo -e "${YELLOW}🚀 Starting API Server...${NC}"
-python3 -m forgeclaw.api &
+
+# 确保 src 目录在 Python 路径中
+export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
+
+# 启动 uvicorn
+python3 -m uvicorn forgeclaw.api.main:app --host 0.0.0.0 --port 8000 --reload &
 API_PID=$!
 echo -e "${GREEN}✓ API Server started (PID: $API_PID)${NC}"
 echo -e "${BLUE}  → API: http://localhost:8000${NC}"
