@@ -43,20 +43,29 @@ async def create_task(request: CreateTaskRequest) -> dict[str, Any]:
 async def list_tasks(enabled_only: bool = False) -> list[dict[str, Any]]:
     """列出定时任务."""
     tasks = await scheduler.list_tasks(enabled_only=enabled_only)
-    return [
-        {
+    result = []
+    for t in tasks:
+        # 根据 trigger_type 获取正确的触发器配置
+        trigger_config = {}
+        if t.trigger_type.name == "CRON" and t.cron:
+            trigger_config = t.cron.model_dump()
+        elif t.trigger_type.name == "INTERVAL" and t.interval:
+            trigger_config = t.interval.model_dump()
+        elif t.trigger_type.name == "EVENT" and t.event:
+            trigger_config = t.event.model_dump()
+        
+        result.append({
             "id": t.id,
             "name": t.name,
             "enabled": t.enabled,
             "trigger_type": t.trigger_type.value if hasattr(t.trigger_type, 'value') else str(t.trigger_type),
-            "trigger": t.trigger,
+            "trigger": trigger_config,
             "context_policy": t.context_policy.value if hasattr(t.context_policy, 'value') else str(t.context_policy),
             "last_run_status": t.last_run_status,
             "next_run_at": t.next_run_at,
-            "workflow_id": t.workflow_id,
-        }
-        for t in tasks
-    ]
+            "workflow_id": t.locked_workflow_id,
+        })
+    return result
 
 
 @router.get("/{task_id}", response_model=ScheduledTask)
