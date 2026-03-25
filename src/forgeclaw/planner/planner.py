@@ -53,10 +53,11 @@ class PlannerService:
         self.llm_base_url = llm_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
         self.llm_model = llm_model or os.getenv("OPENAI_MODEL") or "gpt-4o"
         
-        # 锁定的工作流存储
-        self._locked_workflows: dict[str, LockedWorkflow] = {}
-        # 草案缓存（用于 confirm）
-        self._draft_cache: dict[str, WorkflowDraft] = {}
+        # 使用类变量作为全局缓存（跨实例共享）
+        if not hasattr(PlannerService, '_locked_workflows'):
+            PlannerService._locked_workflows: dict[str, LockedWorkflow] = {}
+        if not hasattr(PlannerService, '_draft_cache'):
+            PlannerService._draft_cache: dict[str, WorkflowDraft] = {}
 
     def _get_available_skills(self) -> list[SkillInfo]:
         """获取可用的 Skill 列表."""
@@ -283,7 +284,7 @@ class PlannerService:
                 draft.cost_estimate = await self._estimate_cost(draft)
             
             # 缓存 draft 供 confirm 使用
-            self._draft_cache[draft_id] = draft
+            PlannerService._draft_cache[draft_id] = draft
 
             logger.info("planning_completed", workflow_name=draft.name, nodes_count=len(draft.nodes))
 
@@ -455,7 +456,7 @@ class PlannerService:
             }],
         )
 
-        self._locked_workflows[workflow_id] = locked
+        PlannerService._locked_workflows[workflow_id] = locked
 
         logger.info("workflow_locked", workflow_id=workflow_id, user_id=user_id)
 
@@ -463,7 +464,7 @@ class PlannerService:
 
     async def get_locked(self, workflow_id: str) -> LockedWorkflow | None:
         """获取锁定的工作流."""
-        return self._locked_workflows.get(workflow_id)
+        return PlannerService._locked_workflows.get(workflow_id)
 
     async def unlock(
         self,
@@ -472,7 +473,7 @@ class PlannerService:
         user_id: str | None = None,
     ) -> bool:
         """解锁工作流（用于修改）."""
-        locked = self._locked_workflows.get(workflow_id)
+        locked = PlannerService._locked_workflows.get(workflow_id)
         if not locked:
             return False
 
@@ -489,7 +490,7 @@ class PlannerService:
 
     async def list_locked(self) -> list[LockedWorkflow]:
         """列出所有锁定的工作流."""
-        return list(self._locked_workflows.values())
+        return list(PlannerService._locked_workflows.values())
 
     async def confirm(self, draft_id: str, user_id: str | None = None) -> LockedWorkflow:
         """确认并锁定工作流草案.
@@ -504,14 +505,14 @@ class PlannerService:
         Raises:
             ValueError: 如果 draft_id 不存在
         """
-        draft = self._draft_cache.get(draft_id)
+        draft = PlannerService._draft_cache.get(draft_id)
         if not draft:
             raise ValueError(f"Draft {draft_id} not found or expired")
         
         locked = await self.lock(draft, user_id)
         
         # 从缓存中移除已确认的 draft
-        del self._draft_cache[draft_id]
+        del PlannerService._draft_cache[draft_id]
         
         return locked
 
