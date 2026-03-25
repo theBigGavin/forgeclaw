@@ -79,22 +79,44 @@ async def list_tasks_alias(enabled_only: bool = False) -> list[dict[str, Any]]:
 @router.post("/tasks", response_model=dict)
 async def create_task_alias(request: CreateTaskSimpleRequest) -> dict[str, Any]:
     """创建定时任务 (前端兼容格式)."""
+    from datetime import datetime
+    import shortuuid
+    
     # 转换前端格式为内部格式
-    trigger_type = request.trigger.get("type", "interval")
+    trigger_type_str = request.trigger.get("type", "interval")
     trigger_config = request.trigger.get("config", {})
     
-    # 构建 ScheduledTask
-    task = ScheduledTask(
-        id="",  # 由 scheduler 生成
-        name=request.name,
-        workflow_id=request.workflow_id,
-        trigger_type=TriggerType(trigger_type),
-        trigger=trigger_config,
-        context_policy=ContextInheritancePolicy(request.context_policy),
-        enabled=True,
-    )
+    # 生成唯一任务ID
+    task_id = f"task_{shortuuid.uuid()[:8]}"
     
-    task_id = await scheduler.create_task(task)
+    # 构建 ScheduledTask - 映射前端字段到内部字段
+    now = datetime.now().isoformat()
+    
+    # 根据触发器类型构建相应的触发器配置
+    task_data = {
+        "id": task_id,
+        "name": request.name,
+        "locked_workflow_id": request.workflow_id,  # 前端用 workflow_id, 内部用 locked_workflow_id
+        "trigger_type": TriggerType(trigger_type_str),
+        "context_policy": ContextInheritancePolicy(request.context_policy),
+        "enabled": True,
+        "created_at": now,
+    }
+    
+    # 根据触发器类型添加配置
+    trigger_type = TriggerType(trigger_type_str)
+    if trigger_type == TriggerType.CRON:
+        task_data["cron"] = trigger_config
+    elif trigger_type == TriggerType.INTERVAL:
+        task_data["interval"] = trigger_config
+    elif trigger_type == TriggerType.EVENT:
+        task_data["event"] = trigger_config
+    elif trigger_type == TriggerType.ONCE:
+        task_data["run_at"] = trigger_config.get("execute_at", now)
+    
+    task = ScheduledTask(**task_data)
+    
+    await scheduler.create_task(task)
     return {"id": task_id, "status": "created"}
 
 

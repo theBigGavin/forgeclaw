@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Sparkles, Clock, DollarSign, Shield, CheckCircle } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Sparkles, Clock, DollarSign, CheckCircle, Loader2 } from 'lucide-react'
 import { plannerApi, workflowsApi } from '../api/client'
-import type { PlanningResult, WorkflowDefinition } from '../types'
+import type { PlanningResult, WorkflowDefinition, PlanningTask } from '../types'
 import toast from 'react-hot-toast'
 
 export default function Planner() {
@@ -9,9 +9,59 @@ export default function Planner() {
   const [planning, setPlanning] = useState(false)
   const [result, setResult] = useState<PlanningResult | null>(null)
   const [confirming, setConfirming] = useState(false)
+  
+  // Async polling state
+  const [taskId, setTaskId] = useState<string | null>(null)
+  const [taskStatus, setTaskStatus] = useState<PlanningTask | null>(null)
+  const [pollInterval, setPollInterval] = useState<number | null>(null)
+
+  // Polling effect
+  useEffect(() => {
+    if (!taskId || !pollInterval) return
+
+    const poll = async () => {
+      try {
+        const response = await plannerApi.getTaskStatus(taskId)
+        const status = response.data
+        setTaskStatus(status)
+        
+        console.log('Task status:', status.status, 'Progress:', status.progress, 'Step:', status.current_step)
+        
+        // Check if completed or failed
+        if (status.status === 'completed') {
+          clearInterval(pollInterval)
+          setPollInterval(null)
+          setPlanning(false)
+          
+          if (status.draft) {
+            setResult({ success: true, draft: status.draft, error: null })
+            toast.success(`Plan generated in ${status.elapsed_seconds.toFixed(1)}s!`)
+          }
+        } else if (status.status === 'failed') {
+          clearInterval(pollInterval)
+          setPollInterval(null)
+          setPlanning(false)
+          toast.error(`Planning failed: ${status.error}`)
+        }
+        // Otherwise continue polling (pending/running)
+      } catch (error: any) {
+        console.error('Polling error:', error)
+        // Don't stop polling on transient errors
+      }
+    }
+
+    // Poll immediately then every 2 seconds
+    poll()
+    const interval = setInterval(poll, 2000)
+    setPollInterval(interval)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [taskId])
 
   const handlePlan = async () => {
-    if (planning) return // Prevent double submission
+    if (planning) return
     
     if (!goal.trim()) {
       toast.error('Please enter your goal')
@@ -20,34 +70,30 @@ export default function Planner() {
 
     setPlanning(true)
     setResult(null)
+    setTaskId(null)
+    setTaskStatus(null)
 
     try {
-      const response = await plannerApi.plan({
+      // Start async planning
+      const response = await plannerApi.planAsync({
         goal,
         context: {},
       })
-      const data = response.data
       
-      // Check for error in response
-      if ((data as any).error) {
-        toast.error(`Planning failed: ${(data as any).error}`)
-      } else if (!data.draft) {
-        toast.error('Planning returned empty result')
-      } else {
-        setResult(data)
-        toast.success('Plan generated!')
-      }
+      const newTaskId = response.data.task_id
+      setTaskId(newTaskId)
+      toast.success('Planning started! Monitoring progress...')
+      
     } catch (error: any) {
       const message = error.response?.data?.error || error.message || 'Unknown error'
-      toast.error(`Failed to generate plan: ${message}`)
+      toast.error(`Failed to start planning: ${message}`)
       console.error('Planning error:', error)
-    } finally {
       setPlanning(false)
     }
   }
 
   const handleConfirm = async () => {
-    if (confirming) return // Prevent double submission
+    if (confirming) return
     if (!result) return
 
     setConfirming(true)
@@ -73,6 +119,17 @@ export default function Planner() {
     }
   }
 
+  // Progress bar color based on status
+  const getProgressColor = () => {
+    if (!taskStatus) return 'bg-blue-600'
+    switch (taskStatus.status) {
+      case 'completed': return 'bg-green-600'
+      case 'failed': return 'bg-red-600'
+      case 'running': return 'bg-blue-600 animate-pulse'
+      default: return 'bg-gray-400'
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="text-center space-y-2">
@@ -92,6 +149,7 @@ export default function Planner() {
           onChange={(e) => setGoal(e.target.value)}
           placeholder="Example: Create a workflow that fetches the latest news about AI, summarizes them, and sends a daily email report..."
           className="input w-full h-32 resize-none"
+          disabled={planning}
         />
         <div className="flex justify-between items-center mt-4">
           <p className="text-sm text-gray-500">
@@ -104,7 +162,7 @@ export default function Planner() {
           >
             {planning ? (
               <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
                 Planning...
               </>
             ) : (
@@ -116,14 +174,52 @@ export default function Planner() {
           </button>
         </div>
         
-        {/* Loading Status */}
-        {planning && (
+        {/* Async Progress Display */}
+        {planning && taskStatus && (
+          <div className="mt-6 space-y-3">
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className={`h-3 rounded-full transition-all duration-500 ${getProgressColor()}`}
+                style={{ width: `${taskStatus.progress}%` }}
+              />
+            </div>
+            
+            {/* Status Info */}
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                {taskStatus.status === 'running' && (
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                )}
+                {taskStatus.status === 'completed' && (
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                )}
+                <span className="font-medium text-gray-700">
+                  {taskStatus.current_step || 'Initializing'}
+                </span>
+              </div>
+              <div className="text-gray-500">
+                <span className="font-medium">{taskStatus.progress}%</span>
+                <span className="mx-2">•</span>
+                <span>{taskStatus.elapsed_seconds.toFixed(1)}s</span>
+              </div>
+            </div>
+            
+            {/* Task ID for MCP monitoring */}
+            <div className="text-xs text-gray-400 font-mono bg-gray-50 p-2 rounded">
+              Task: {taskId}
+            </div>
+          </div>
+        )}
+        
+        {/* Simple loading state (before first poll) */}
+        {planning && !taskStatus && (
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
               <div>
-                <p className="font-medium text-blue-800">AI is analyzing your goal...</p>
-                <p className="text-sm text-blue-600">This may take 10-30 seconds depending on complexity.</p>
+                <p className="font-medium text-blue-800">Starting planning task...</p>
+                <p className="text-sm text-blue-600">This may take 10-60 seconds depending on complexity.</p>
               </div>
             </div>
           </div>
@@ -141,6 +237,22 @@ export default function Planner() {
               <p className="text-sm text-gray-500 mt-2">
                 Please check your API configuration in .env file and try again.
               </p>
+            </div>
+          )}
+          
+          {/* Success Message */}
+          {result.success && (
+            <div className="card p-6 bg-green-50 border-green-200">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-green-800">Planning Complete!</h3>
+                  <p className="text-green-700">
+                    Generated workflow with {result.draft?.nodes.length || 0} nodes
+                    {taskStatus && ` in ${taskStatus.elapsed_seconds.toFixed(1)}s`}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
           
@@ -231,64 +343,34 @@ export default function Planner() {
             </div>
           )}
 
-          {/* Risk Assessment */}
-          {result.risk_assessment && result.risk_assessment.length > 0 && (
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold mb-4">Risk Assessment</h3>
-              <div className="space-y-3">
-                {result.risk_assessment.map((risk, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg ${
-                      risk.severity === 'high'
-                        ? 'bg-red-50 border border-red-200'
-                        : risk.severity === 'medium'
-                        ? 'bg-yellow-50 border border-yellow-200'
-                        : 'bg-blue-50 border border-blue-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Shield className={`w-4 h-4 ${
-                        risk.severity === 'high'
-                          ? 'text-red-500'
-                          : risk.severity === 'medium'
-                          ? 'text-yellow-500'
-                          : 'text-blue-500'
-                      }`} />
-                      <span className="font-medium capitalize">{risk.type} Risk</span>
-                      <span className="text-xs uppercase px-2 py-0.5 rounded bg-white">
-                        {risk.severity}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">{risk.description}</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Mitigation: {risk.mitigation}
-                    </p>
-                  </div>
-                ))}
+          {/* Confirm Button */}
+          <div className="card p-6 bg-primary-50 border-primary-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-primary-900">Ready to create?</h3>
+                <p className="text-primary-700">
+                  This will create a locked workflow that can be executed.
+                </p>
               </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          {result.draft && (
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => setResult(null)}
-                className="btn-secondary px-8"
-              >
-                Cancel
-              </button>
               <button
                 onClick={handleConfirm}
                 disabled={confirming}
-                className="btn-primary px-8 flex items-center gap-2"
+                className="btn-primary flex items-center gap-2"
               >
-                <CheckCircle className="w-5 h-5" />
-                {confirming ? 'Creating...' : 'Confirm & Create Workflow'}
+                {confirming ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    Create Workflow
+                  </>
+                )}
               </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

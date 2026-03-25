@@ -139,3 +139,22 @@ class LockedWorkflow(BaseModel):
     # 审计
     planning_history: list[dict[str, Any]] = Field(default_factory=list, description="规划历史")
     user_feedback_history: list[UserFeedback] = Field(default_factory=list, description="用户反馈历史")
+
+
+class PlanningTaskStatus(BaseModel):
+    """异步规划任务状态."""
+    
+    task_id: str = Field(description="任务唯一标识")
+    status: str = Field(description="状态: pending/running/completed/failed")
+    goal: str = Field(description="用户目标")
+    created_at: str = Field(description="创建时间")
+    updated_at: str = Field(description="更新时间")
+    progress: int = Field(default=0, description="进度 0-100")
+    current_step: str = Field(default="", description="当前步骤")
+    
+    # 结果
+    draft: WorkflowDraft | None = Field(default=None, description="生成的工作流草案")
+    error: str | None = Field(default=None, description="错误信息")
+    
+    # 元数据
+    elapsed_seconds: float = Field(default=0.0, description="已用时间(秒)")

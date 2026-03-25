@@ -1,7 +1,10 @@
 """规划服务实现."""
 
+import asyncio
 import json
 import os
+import time
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -14,6 +17,7 @@ from forgeclaw.planner.models import (
     LockedWorkflow,
     NodeDraft,
     PlanningResult,
+    PlanningTaskStatus,
     SkillInfo,
     UserFeedback,
     WorkflowDraft,
@@ -58,6 +62,8 @@ class PlannerService:
             PlannerService._locked_workflows: dict[str, LockedWorkflow] = {}
         if not hasattr(PlannerService, '_draft_cache'):
             PlannerService._draft_cache: dict[str, WorkflowDraft] = {}
+        if not hasattr(PlannerService, '_planning_tasks'):
+            PlannerService._planning_tasks: dict[str, PlanningTaskStatus] = {}
 
     def _get_available_skills(self) -> list[SkillInfo]:
         """获取可用的 Skill 列表."""
@@ -232,6 +238,147 @@ class PlannerService:
         
         # 规范化数据
         return self._normalize_draft(data)
+
+    # ========== 异步规划任务 API ==========
+
+    async def plan_async(self, goal: str, context: dict[str, Any] | None = None) -> str:
+        """启动异步规划任务.
+        
+        Args:
+            goal: 用户目标描述
+            context: 上下文信息
+            
+        Returns:
+            task_id: 任务ID，用于轮询状态
+        """
+        task_id = f"plan_task_{uuid.uuid4().hex[:12]}"
+        now = datetime.now().isoformat()
+        
+        # 创建任务状态
+        task_status = PlanningTaskStatus(
+            task_id=task_id,
+            status="pending",
+            goal=goal,
+            created_at=now,
+            updated_at=now,
+            progress=0,
+            current_step="Initializing",
+        )
+        PlannerService._planning_tasks[task_id] = task_status
+        
+        # 启动后台任务
+        asyncio.create_task(self._plan_background(task_id, goal, context))
+        
+        logger.info("async_planning_started", task_id=task_id, goal=goal)
+        return task_id
+    
+    async def _plan_background(self, task_id: str, goal: str, context: dict[str, Any] | None):
+        """后台执行规划任务."""
+        task = PlannerService._planning_tasks.get(task_id)
+        if not task:
+            return
+        
+        start_time = time.time()
+        
+        def update_progress(progress: int, step: str):
+            task.progress = progress
+            task.current_step = step
+            task.updated_at = datetime.now().isoformat()
+            task.elapsed_seconds = time.time() - start_time
+            logger.info("planning_progress", task_id=task_id, progress=progress, step=step)
+        
+        try:
+            # 开始执行
+            task.status = "running"
+            update_progress(5, "Analyzing available skills")
+            
+            # 步骤1: 获取可用技能
+            update_progress(10, "Preparing prompt with skills")
+            skills = self._get_available_skills()
+            skills_text = self._format_skills_for_prompt(skills)
+            
+            # 步骤2: 构建提示词
+            update_progress(15, "Building planning prompt")
+            prompt = PLANNING_USER_PROMPT_TEMPLATE.format(
+                goal=goal,
+                context=json.dumps(context or {}, ensure_ascii=False, indent=2),
+                skills=skills_text,
+            )
+            
+            # 步骤3: 调用 LLM
+            update_progress(20, "Calling LLM for planning")
+            messages = [
+                {"role": "system", "content": PLANNING_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ]
+            
+            headers = {
+                "Authorization": f"Bearer {self.llm_api_key}",
+                "Content-Type": "application/json",
+            }
+            
+            payload = {
+                "model": self.llm_model,
+                "messages": messages,
+                "temperature": 0.7,
+            }
+            
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    f"{self.llm_base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                result = response.json()
+            
+            # 步骤4: 解析响应
+            update_progress(70, "Parsing LLM response")
+            llm_response = result["choices"][0]["message"]["content"]
+            
+            # 步骤5: 规范化数据
+            update_progress(80, "Normalizing workflow draft")
+            draft_data = self._parse_json_response(llm_response)
+            
+            # 步骤6: 创建草案
+            update_progress(90, "Creating workflow draft")
+            draft = WorkflowDraft(**draft_data)
+            
+            # 生成唯一ID
+            draft_id = f"draft_{uuid.uuid4().hex}"
+            draft.id = draft_id
+            
+            # 存储到缓存
+            PlannerService._draft_cache[draft_id] = draft
+            
+            # 完成任务
+            task.status = "completed"
+            task.progress = 100
+            task.current_step = "Completed"
+            task.draft = draft
+            task.updated_at = datetime.now().isoformat()
+            task.elapsed_seconds = time.time() - start_time
+            
+            logger.info("async_planning_completed", 
+                       task_id=task_id, 
+                       draft_id=draft_id, 
+                       elapsed_seconds=task.elapsed_seconds)
+            
+        except Exception as e:
+            task.status = "failed"
+            task.error = str(e)
+            task.current_step = "Failed"
+            task.updated_at = datetime.now().isoformat()
+            task.elapsed_seconds = time.time() - start_time
+            logger.error("async_planning_failed", task_id=task_id, error=str(e))
+    
+    def get_planning_task(self, task_id: str) -> PlanningTaskStatus | None:
+        """获取规划任务状态."""
+        return PlannerService._planning_tasks.get(task_id)
+    
+    def list_planning_tasks(self) -> list[PlanningTaskStatus]:
+        """列出所有规划任务."""
+        return list(PlannerService._planning_tasks.values())
 
     async def plan(
         self,

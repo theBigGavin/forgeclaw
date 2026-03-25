@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from forgeclaw.planner.models import (
     LockedWorkflow,
     PlanningResult,
+    PlanningTaskStatus,
     UserFeedback,
     WorkflowDraft,
 )
@@ -48,12 +49,38 @@ class LockRequest(BaseModel):
 
 @router.post("/plan", response_model=PlanningResult)
 async def plan_workflow(request: PlanRequest) -> PlanningResult:
-    """规划工作流.
+    """规划工作流（同步，保持兼容）.
 
     根据用户目标生成工作流草案。
     """
     result = await get_planner().plan(request.goal, request.context)
     return result
+
+
+@router.post("/plan-async", response_model=dict[str, str])
+async def plan_workflow_async(request: PlanRequest) -> dict[str, str]:
+    """异步规划工作流.
+    
+    立即返回任务ID，后台异步执行规划。
+    使用 GET /plan-tasks/{task_id} 查询进度。
+    """
+    task_id = await get_planner().plan_async(request.goal, request.context)
+    return {"task_id": task_id, "status": "accepted"}
+
+
+@router.get("/plan-tasks/{task_id}", response_model=PlanningTaskStatus)
+async def get_planning_task_status(task_id: str) -> PlanningTaskStatus:
+    """获取异步规划任务状态."""
+    task = get_planner().get_planning_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
+@router.get("/plan-tasks", response_model=list[PlanningTaskStatus])
+async def list_planning_tasks() -> list[PlanningTaskStatus]:
+    """列出所有异步规划任务."""
+    return get_planner().list_planning_tasks()
 
 
 @router.post("/modify", response_model=PlanningResult)

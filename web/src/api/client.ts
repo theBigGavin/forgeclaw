@@ -36,6 +36,10 @@ export const executionsApi = {
 export const plannerApi = {
   plan: (data: { goal: string; context: Record<string, any> }) =>
     client.post(`${API_V1}/planner/plan`, data),
+  planAsync: (data: { goal: string; context: Record<string, any> }) =>
+    client.post(`${API_V1}/planner/plan-async`, data),
+  getTaskStatus: (taskId: string) =>
+    client.get(`${API_V1}/planner/plan-tasks/${taskId}`),
   confirm: (draftId: string) => client.post(`${API_V1}/planner/confirm/${draftId}`),
 }
 

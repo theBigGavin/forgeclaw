@@ -119,9 +119,25 @@ export interface WorkflowDraft {
 }
 
 export interface PlanningResult {
-  draft: WorkflowDraft
-  cost_estimate: CostEstimate
+  success: boolean
+  draft?: WorkflowDraft
+  error?: string
+  cost_estimate?: CostEstimate
   risk_assessment?: RiskAssessment[]
+}
+
+// Async Planning Task
+export interface PlanningTask {
+  task_id: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  goal: string
+  created_at: string
+  updated_at: string
+  progress: number
+  current_step: string
+  draft?: WorkflowDraft
+  error?: string
+  elapsed_seconds: number
 }
 
 // Scheduler Types
