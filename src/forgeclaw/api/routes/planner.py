@@ -1,5 +1,6 @@
 """规划服务路由."""
 
+import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -14,7 +15,17 @@ from forgeclaw.planner.models import (
 from forgeclaw.planner.planner import PlannerService
 
 router = APIRouter()
-planner = PlannerService()
+
+# 延迟初始化，确保环境变量已加载
+_planner: PlannerService | None = None
+
+
+def get_planner() -> PlannerService:
+    """获取 PlannerService 实例（延迟初始化）."""
+    global _planner
+    if _planner is None:
+        _planner = PlannerService()
+    return _planner
 
 
 class PlanRequest(BaseModel):
@@ -41,7 +52,7 @@ async def plan_workflow(request: PlanRequest) -> PlanningResult:
 
     根据用户目标生成工作流草案。
     """
-    result = await planner.plan(request.goal, request.context)
+    result = await get_planner().plan(request.goal, request.context)
     return result
 
 
@@ -51,7 +62,7 @@ async def modify_workflow(request: ModifyRequest) -> PlanningResult:
 
     根据用户反馈修改工作流。
     """
-    result = await planner.modify(request.current_draft, request.feedback)
+    result = await get_planner().modify(request.current_draft, request.feedback)
     return result
 
 
@@ -61,7 +72,7 @@ async def lock_workflow(request: LockRequest) -> LockedWorkflow:
 
     将工作流草案锁定为可执行的契约。
     """
-    locked = await planner.lock(request.draft, request.user_id)
+    locked = await get_planner().lock(request.draft, request.user_id)
     return locked
 
 
@@ -72,7 +83,7 @@ async def confirm_workflow(draft_id: str, user_id: str | None = None) -> LockedW
     根据 draft_id 查找缓存的草案并锁定。
     """
     try:
-        locked = await planner.confirm(draft_id, user_id)
+        locked = await get_planner().confirm(draft_id, user_id)
         return locked
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -81,7 +92,7 @@ async def confirm_workflow(draft_id: str, user_id: str | None = None) -> LockedW
 @router.get("/locked/{workflow_id}", response_model=LockedWorkflow)
 async def get_locked_workflow(workflow_id: str) -> LockedWorkflow:
     """获取锁定的工作流."""
-    locked = await planner.get_locked(workflow_id)
+    locked = await get_planner().get_locked(workflow_id)
     if not locked:
         raise HTTPException(status_code=404, detail="Locked workflow not found")
     return locked
@@ -90,7 +101,7 @@ async def get_locked_workflow(workflow_id: str) -> LockedWorkflow:
 @router.get("/locked", response_model=list[LockedWorkflow])
 async def list_locked_workflows() -> list[LockedWorkflow]:
     """列出所有锁定的工作流."""
-    return await planner.list_locked()
+    return await get_planner().list_locked()
 
 
 @router.post("/estimate", response_model=dict[str, Any])
@@ -99,5 +110,5 @@ async def estimate_cost(draft: WorkflowDraft) -> dict[str, Any]:
 
     重新计算工作流的成本预估。
     """
-    cost = await planner._estimate_cost(draft)
+    cost = await get_planner()._estimate_cost(draft)
     return cost.model_dump()
