@@ -1,11 +1,16 @@
 """FastAPI 主应用."""
 
+import os
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from forgeclaw.api.routes import assets, executions, memory, planner, scheduler, skills, workflows
+
+# 加载环境变量
+load_dotenv()
 
 
 @asynccontextmanager
