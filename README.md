@@ -77,9 +77,25 @@ source .venv/bin/activate
 
 # 安装依赖
 pip install -e ".[dev]"
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，添加你的 OpenAI API Key
 ```
 
 ### 启动服务
+
+#### 1. 配置环境变量
+
+```bash
+# 复制示例配置文件
+cp .env.example .env
+
+# 编辑 .env，添加你的 OpenAI API Key
+OPENAI_API_KEY=sk-your-api-key-here
+```
+
+#### 2. 启动服务
 
 ```bash
 # 启动 API 服务器

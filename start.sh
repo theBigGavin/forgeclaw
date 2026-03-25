@@ -67,6 +67,19 @@ if [ -f ".venv/bin/activate" ]; then
     source .venv/bin/activate
 fi
 
+# Load environment variables from .env file
+if [ -f ".env" ]; then
+    echo -e "${YELLOW}📄 Loading environment from .env...${NC}"
+    export $(grep -v '^#' .env | xargs)
+fi
+
+# Check required environment variables
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo -e "${YELLOW}⚠️  Warning: OPENAI_API_KEY not set. Planner functionality will not work.${NC}"
+    echo -e "${YELLOW}   Copy .env.example to .env and add your API key.${NC}"
+    echo ""
+fi
+
 # Check if Node.js is available (for web UI)
 if [ "$WEB_UI" = true ]; then
     if ! command -v npm &> /dev/null; then
