@@ -107,10 +107,43 @@ async def lock_workflow(request: LockRequest) -> LockedWorkflow:
 async def confirm_workflow(draft_id: str, user_id: str | None = None) -> LockedWorkflow:
     """确认并锁定工作流草案.
     
-    根据 draft_id 查找缓存的草案并锁定。
+    根据 draft_id 查找缓存的草案并锁定，同时创建工作流到工作流存储。
     """
     try:
         locked = await get_planner().confirm(draft_id, user_id)
+        
+        # 同时创建工作流到工作流存储，使其在 Workflows 页面可见
+        from forgeclaw.api.routes.workflows import _workflows
+        from forgeclaw.models.workflow import WorkflowDefinition
+        
+        draft = locked.draft
+        workflow_def = WorkflowDefinition(
+            id=locked.workflow_id,
+            name=draft.name,
+            description=draft.description,
+            version=draft.version,
+            nodes=[
+                {
+                    "id": n.id,
+                    "type": n.type,
+                    "name": n.name,
+                    "description": n.description,
+                    "skill_id": n.skill_id,
+                    "skill_version": n.skill_version,
+                    "inputs": n.inputs,
+                    "temperature": n.temperature,
+                }
+                for n in draft.nodes
+            ],
+            edges=[
+                {"from": e.from_node, "to": e.to_node, "condition": e.condition}
+                for e in draft.edges
+            ],
+            inputs=draft.inputs,
+            outputs=draft.outputs,
+        )
+        _workflows[locked.workflow_id] = workflow_def
+        
         return locked
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
