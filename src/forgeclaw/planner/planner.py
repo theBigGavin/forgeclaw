@@ -515,8 +515,10 @@ class PlannerService:
         Raises:
             ValueError: 如果 draft_id 不存在
         """
+        logger.info("confirm_start", draft_id=draft_id, cache_keys=list(PlannerService._draft_cache.keys()))
         draft = PlannerService._draft_cache.get(draft_id)
         if not draft:
+            logger.error("confirm_draft_not_found", draft_id=draft_id, cache_size=len(PlannerService._draft_cache))
             raise ValueError(f"Draft {draft_id} not found or expired")
         
         locked = await self.lock(draft, user_id)
