@@ -115,16 +115,19 @@ export default function Scheduler() {
 
   const getTriggerDisplay = (task: ScheduledTask) => {
     const { type, config } = task.trigger
+    if (!config) return type || 'Unknown'
+    
     if (type === 'interval') {
-      return `Every ${config.minutes} minutes`
+      const minutes = config.minutes || config.minutes_5 || config.minutes_1 || 5
+      return `Every ${minutes} minutes`
     } else if (type === 'cron') {
-      return `Cron: ${config.expression}`
+      return `Cron: ${config.expression || config.minute + ' ' + config.hour + ' * * *'}`
     } else if (type === 'event') {
-      return `On: ${config.event_type}`
-    } else if (config.execute_at) {
-      return `Once at: ${new Date(config.execute_at).toLocaleString()}`
+      return `On: ${config.event_type || 'workflow.completed'}`
+    } else if (type === 'once' || config.execute_at) {
+      return `Once at: ${new Date(config.execute_at || Date.now()).toLocaleString()}`
     }
-    return 'Once'
+    return type || 'Unknown'
   }
 
   if (loading) {

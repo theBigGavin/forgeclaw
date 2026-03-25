@@ -68,6 +68,50 @@ async def list_tasks(enabled_only: bool = False) -> list[dict[str, Any]]:
     return result
 
 
+# ========== /tasks 别名路由 (前端兼容) - 必须在 /{task_id} 之前定义 ==========
+
+@router.get("/tasks", response_model=list)
+async def list_tasks_alias(enabled_only: bool = False) -> list[dict[str, Any]]:
+    """列出定时任务 (前端兼容)."""
+    return await list_tasks(enabled_only=enabled_only)
+
+
+@router.post("/tasks", response_model=dict)
+async def create_task_alias(request: CreateTaskSimpleRequest) -> dict[str, Any]:
+    """创建定时任务 (前端兼容格式)."""
+    # 转换前端格式为内部格式
+    trigger_type = request.trigger.get("type", "interval")
+    trigger_config = request.trigger.get("config", {})
+    
+    # 构建 ScheduledTask
+    task = ScheduledTask(
+        id="",  # 由 scheduler 生成
+        name=request.name,
+        workflow_id=request.workflow_id,
+        trigger_type=TriggerType(trigger_type),
+        trigger=trigger_config,
+        context_policy=ContextInheritancePolicy(request.context_policy),
+        enabled=True,
+    )
+    
+    task_id = await scheduler.create_task(task)
+    return {"id": task_id, "status": "created"}
+
+
+@router.patch("/tasks/{task_id}", response_model=dict)
+async def update_task_patch_alias(task_id: str, request: UpdateTaskRequest) -> dict[str, Any]:
+    """更新任务 (前端兼容 PATCH 方法)."""
+    return await update_task_patch(task_id, request)
+
+
+@router.delete("/tasks/{task_id}", response_model=dict)
+async def delete_task_alias(task_id: str) -> dict[str, Any]:
+    """删除任务 (前端兼容)."""
+    return await delete_task(task_id)
+
+
+# ========== 详情路由 (在 /tasks 之后定义) ==========
+
 @router.get("/{task_id}", response_model=ScheduledTask)
 async def get_task(task_id: str) -> ScheduledTask:
     """获取任务详情."""
@@ -120,43 +164,4 @@ async def get_execution_records(task_id: str, limit: int = 10) -> list[dict[str,
     return [r.model_dump() for r in records]
 
 
-# ========== /tasks 别名路由 (前端兼容) ==========
 
-@router.post("/tasks", response_model=dict)
-async def create_task_alias(request: CreateTaskSimpleRequest) -> dict[str, Any]:
-    """创建定时任务 (前端兼容格式)."""
-    # 转换前端格式为内部格式
-    trigger_type = request.trigger.get("type", "interval")
-    trigger_config = request.trigger.get("config", {})
-    
-    # 构建 ScheduledTask
-    task = ScheduledTask(
-        id="",  # 由 scheduler 生成
-        name=request.name,
-        workflow_id=request.workflow_id,
-        trigger_type=TriggerType(trigger_type),
-        trigger=trigger_config,
-        context_policy=ContextInheritancePolicy(request.context_policy),
-        enabled=True,
-    )
-    
-    task_id = await scheduler.create_task(task)
-    return {"id": task_id, "status": "created"}
-
-
-@router.get("/tasks", response_model=list)
-async def list_tasks_alias(enabled_only: bool = False) -> list[dict[str, Any]]:
-    """列出定时任务 (前端兼容)."""
-    return await list_tasks(enabled_only=enabled_only)
-
-
-@router.patch("/tasks/{task_id}", response_model=dict)
-async def update_task_patch_alias(task_id: str, request: UpdateTaskRequest) -> dict[str, Any]:
-    """更新任务 (前端兼容 PATCH 方法)."""
-    return await update_task_patch(task_id, request)
-
-
-@router.delete("/tasks/{task_id}", response_model=dict)
-async def delete_task_alias(task_id: str) -> dict[str, Any]:
-    """删除任务 (前端兼容)."""
-    return await delete_task(task_id)
