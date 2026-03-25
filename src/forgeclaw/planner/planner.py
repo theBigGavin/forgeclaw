@@ -127,45 +127,106 @@ class PlannerService:
             data = response.json()
             return data["choices"][0]["message"]["content"]
 
+    def _normalize_draft(self, data: dict[str, Any]) -> dict[str, Any]:
+        """规范化 draft 数据，处理各种 LLM 返回格式."""
+        result: dict[str, Any] = {}
+        
+        # 处理嵌套结构
+        source = data.get("workflow_draft", data)
+        
+        # 处理 base_info 嵌套
+        if "base_info" in source:
+            base = source["base_info"]
+            result["name"] = base.get("name", "")
+            result["description"] = base.get("description", "")
+            result["version"] = base.get("version", "1.0.0")
+        else:
+            result["name"] = source.get("name", "")
+            result["description"] = source.get("description", "")
+            result["version"] = source.get("version", "1.0.0")
+        
+        # 4W1H 分析
+        if "analysis" in source:
+            analysis = source["analysis"]
+            result["what"] = analysis.get("what", "")
+            result["why"] = analysis.get("why", "")
+            result["who"] = analysis.get("who", "")
+            result["when"] = analysis.get("when", "")
+            result["how"] = analysis.get("how", "")
+            result["analysis"] = analysis
+        elif "what" in source:
+            # 直接在 source 上
+            result["what"] = source.get("what", "")
+            result["why"] = source.get("why", "")
+            result["who"] = source.get("who", "")
+            result["when"] = source.get("when", "")
+            result["how"] = source.get("how", "")
+        
+        # 节点和边
+        result["nodes"] = source.get("nodes", [])
+        result["edges"] = source.get("edges", [])
+        result["inputs"] = source.get("inputs", [])
+        result["outputs"] = source.get("outputs", [])
+        
+        # 成本预估
+        if "cost_estimate" in source:
+            ce = source["cost_estimate"]
+            if isinstance(ce, dict):
+                result["cost_estimate"] = {
+                    "estimated_tokens": ce.get("estimated_tokens", 1000),
+                    "estimated_cost_usd": ce.get("estimated_cost_usd", 0.01),
+                    "estimated_time_seconds": ce.get("estimated_time_seconds", 300),
+                }
+        
+        # 风险处理
+        risk_notes = source.get("risk_notes", [])
+        if isinstance(risk_notes, dict):
+            # 如果是字典，转换为列表
+            result["risk_notes"] = [f"{k}: {v}" for k, v in risk_notes.items()]
+        elif isinstance(risk_notes, list):
+            result["risk_notes"] = risk_notes
+        else:
+            result["risk_notes"] = []
+        
+        result["risk_level"] = source.get("risk_level", "low")
+        
+        return result
+
     def _parse_json_response(self, response: str) -> dict[str, Any]:
         """解析 LLM 的 JSON 响应."""
+        data = None
+        
         # 尝试直接解析
         try:
             data = json.loads(response)
-            # 处理可能的嵌套结构
-            if "workflow_draft" in data:
-                return data["workflow_draft"]
-            return data
         except json.JSONDecodeError:
             pass
 
         # 尝试提取 JSON 代码块
-        if "```json" in response:
+        if data is None and "```json" in response:
             start = response.find("```json") + 7
             end = response.find("```", start)
             if end > start:
                 try:
                     data = json.loads(response[start:end].strip())
-                    if "workflow_draft" in data:
-                        return data["workflow_draft"]
-                    return data
                 except json.JSONDecodeError:
                     pass
 
         # 尝试提取任意代码块
-        if "```" in response:
+        if data is None and "```" in response:
             start = response.find("```") + 3
             end = response.find("```", start)
             if end > start:
                 try:
                     data = json.loads(response[start:end].strip())
-                    if "workflow_draft" in data:
-                        return data["workflow_draft"]
-                    return data
                 except json.JSONDecodeError:
                     pass
 
-        raise ValueError(f"无法解析 JSON 响应: {response[:200]}...")
+        if data is None:
+            raise ValueError(f"无法解析 JSON 响应: {response[:200]}...")
+        
+        # 规范化数据
+        return self._normalize_draft(data)
 
     async def plan(
         self,

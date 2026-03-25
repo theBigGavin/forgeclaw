@@ -95,10 +95,32 @@ export default function Planner() {
             disabled={planning || !goal.trim()}
             className="btn-primary flex items-center gap-2"
           >
-            <Sparkles className="w-5 h-5" />
-            {planning ? 'Planning...' : 'Generate Plan'}
+            {planning ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Planning...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5" />
+                Generate Plan
+              </>
+            )}
           </button>
         </div>
+        
+        {/* Loading Status */}
+        {planning && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <div>
+                <p className="font-medium text-blue-800">AI is analyzing your goal...</p>
+                <p className="text-sm text-blue-600">This may take 10-30 seconds depending on complexity.</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Planning Result */}
