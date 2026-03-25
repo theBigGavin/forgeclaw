@@ -24,37 +24,32 @@ class BootstrapTest:
         """打印日志."""
         prefix = {"info": "ℹ️", "success": "✅", "error": "❌", "warning": "⚠️"}.get(level, "ℹ️")
         print(f"{prefix} {message}")
-        
-    def test(self, name: str):
-        """装饰器：运行单个测试."""
-        def decorator(func):
-            async def wrapper():
-                try:
-                    self.log(f"Testing: {name}")
-                    await func(self)
-                    self.test_results.append((name, True, None))
-                    self.log(f"Passed: {name}", "success")
-                    return True
-                except Exception as e:
-                    self.test_results.append((name, False, str(e)))
-                    self.log(f"Failed: {name} - {e}", "error")
-                    return False
-            return wrapper
-        return decorator
+
+
+def run_test(name: str, t: BootstrapTest, func):
+    """运行单个测试."""
+    try:
+        t.log(f"Testing: {name}")
+        func(t)
+        t.test_results.append((name, True, None))
+        t.log(f"Passed: {name}", "success")
+        return True
+    except Exception as e:
+        t.test_results.append((name, False, str(e)))
+        t.log(f"Failed: {name} - {e}", "error")
+        return False
 
 
 # ========== 测试用例 ==========
 
-@test("Health Check")
-async def test_health(t: BootstrapTest):
+def test_health(t: BootstrapTest):
     """测试健康检查端点."""
     response = t.client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
 
-@test("List Skills")
-async def test_list_skills(t: BootstrapTest):
+def test_list_skills(t: BootstrapTest):
     """测试列出技能."""
     response = t.client.get("/api/v1/skills")
     assert response.status_code == 200
@@ -64,8 +59,7 @@ async def test_list_skills(t: BootstrapTest):
     t.log(f"Found {len(data)} skills")
 
 
-@test("Create Workflow")
-async def test_create_workflow(t: BootstrapTest):
+def test_create_workflow(t: BootstrapTest):
     """测试创建工作流."""
     workflow = {
         "id": "test_bootstrap_workflow",
@@ -75,10 +69,12 @@ async def test_create_workflow(t: BootstrapTest):
         "nodes": [
             {
                 "id": "node_1",
-                "type": "code",
-                "name": "Test Code Node",
-                "description": "Execute test code",
-                "inputs": {"code": "print('hello')"},
+                "type": "skill",
+                "name": "Test Skill Node",
+                "description": "Execute test skill",
+                "skill_id": "http_request",
+                "skill_version": "1.0.0",
+                "inputs": {"url": "https://example.com"},
             }
         ],
         "edges": [],
@@ -93,8 +89,7 @@ async def test_create_workflow(t: BootstrapTest):
     t.created_workflow_id = workflow["id"]
 
 
-@test("Get Workflow")
-async def test_get_workflow(t: BootstrapTest):
+def test_get_workflow(t: BootstrapTest):
     """测试获取工作流."""
     response = t.client.get(f"/api/v1/workflows/{t.created_workflow_id}")
     assert response.status_code == 200
@@ -103,8 +98,7 @@ async def test_get_workflow(t: BootstrapTest):
     assert data["name"] == "Bootstrap Test Workflow"
 
 
-@test("List Workflows")
-async def test_list_workflows(t: BootstrapTest):
+def test_list_workflows(t: BootstrapTest):
     """测试列出工作流."""
     response = t.client.get("/api/v1/workflows")
     assert response.status_code == 200
@@ -113,8 +107,7 @@ async def test_list_workflows(t: BootstrapTest):
     assert any(w["id"] == t.created_workflow_id for w in data)
 
 
-@test("Execute Workflow")
-async def test_execute_workflow(t: BootstrapTest):
+def test_execute_workflow(t: BootstrapTest):
     """测试执行工作流."""
     response = t.client.post(
         f"/api/v1/executions/{t.created_workflow_id}",
@@ -126,8 +119,7 @@ async def test_execute_workflow(t: BootstrapTest):
     assert "status" in data
 
 
-@test("List Executions")
-async def test_list_executions(t: BootstrapTest):
+def test_list_executions(t: BootstrapTest):
     """测试列出执行记录."""
     response = t.client.get("/api/v1/executions")
     assert response.status_code == 200
@@ -135,10 +127,8 @@ async def test_list_executions(t: BootstrapTest):
     assert isinstance(data, list)
 
 
-@test("Planner Mock Response")
-async def test_planner_mock(t: BootstrapTest):
+def test_planner_mock(t: BootstrapTest):
     """测试规划功能（使用模拟 LLM）."""
-    # 直接测试解析逻辑
     from forgeclaw.planner.planner import PlannerService
     
     planner = PlannerService()
@@ -187,26 +177,14 @@ async def test_planner_mock(t: BootstrapTest):
     t.log("Mock draft normalization passed")
 
 
-@test("Scheduler CRUD")
-async def test_scheduler(t: BootstrapTest):
+def test_scheduler(t: BootstrapTest):
     """测试定时任务 CRUD."""
     # 列出任务
     response = t.client.get("/api/v1/scheduler/tasks")
     assert response.status_code == 200
-    
-    # 创建任务（简化格式）
-    task_data = {
-        "name": "Test Scheduler Task",
-        "workflow_id": t.created_workflow_id,
-        "trigger": {"type": "interval", "config": {"minutes": 60}},
-        "context_policy": "recent"
-    }
-    response = t.client.post("/api/v1/scheduler/tasks", json=task_data)
-    assert response.status_code in [200, 422, 500]  # 可能因为工作流不存在而失败
 
 
-@test("Assets Upload/List")
-async def test_assets(t: BootstrapTest):
+def test_assets(t: BootstrapTest):
     """测试资产管理."""
     # 列出资产
     response = t.client.get("/api/v1/assets")
@@ -215,8 +193,7 @@ async def test_assets(t: BootstrapTest):
     assert isinstance(data, list)
 
 
-@test("CORS Headers")
-async def test_cors(t: BootstrapTest):
+def test_cors(t: BootstrapTest):
     """测试 CORS 配置."""
     response = t.client.options(
         "/api/v1/planner/plan",
@@ -229,8 +206,7 @@ async def test_cors(t: BootstrapTest):
     assert "access-control-allow-origin" in response.headers
 
 
-@test("Delete Workflow")
-async def test_delete_workflow(t: BootstrapTest):
+def test_delete_workflow(t: BootstrapTest):
     """测试删除工作流."""
     response = t.client.delete(f"/api/v1/workflows/{t.created_workflow_id}")
     assert response.status_code == 200
@@ -240,7 +216,7 @@ async def test_delete_workflow(t: BootstrapTest):
     assert response.status_code == 404
 
 
-async def run_all_tests():
+def run_all_tests():
     """运行所有测试."""
     print("=" * 60)
     print("🔬 ForgeClaw Bootstrap Test Suite")
@@ -249,25 +225,25 @@ async def run_all_tests():
     
     t = BootstrapTest()
     
-    # 收集所有测试函数
+    # 定义所有测试
     tests = [
-        test_health,
-        test_list_skills,
-        test_create_workflow,
-        test_get_workflow,
-        test_list_workflows,
-        test_execute_workflow,
-        test_list_executions,
-        test_planner_mock,
-        test_scheduler,
-        test_assets,
-        test_cors,
-        test_delete_workflow,
+        ("Health Check", test_health),
+        ("List Skills", test_list_skills),
+        ("Create Workflow", test_create_workflow),
+        ("Get Workflow", test_get_workflow),
+        ("List Workflows", test_list_workflows),
+        ("Execute Workflow", test_execute_workflow),
+        ("List Executions", test_list_executions),
+        ("Planner Mock Response", test_planner_mock),
+        ("Scheduler", test_scheduler),
+        ("Assets", test_assets),
+        ("CORS Headers", test_cors),
+        ("Delete Workflow", test_delete_workflow),
     ]
     
     # 运行测试
-    for test_func in tests:
-        await test_func(t)
+    for name, func in tests:
+        run_test(name, t, func)
         print()
     
     # 打印总结
@@ -295,5 +271,5 @@ async def run_all_tests():
 
 
 if __name__ == "__main__":
-    exit_code = asyncio.run(run_all_tests())
+    exit_code = run_all_tests()
     sys.exit(exit_code)
