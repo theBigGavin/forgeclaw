@@ -80,6 +80,16 @@ def configure_logging():
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    
+    # 配置 Uvicorn 日志处理器，使其也使用 structlog 格式
+    # 覆盖 Uvicorn 默认的日志配置
+    for uvicorn_logger_name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:
+        uvicorn_logger = logging.getLogger(uvicorn_logger_name)
+        uvicorn_logger.handlers = []  # 清除默认处理器
+        uvicorn_logger.propagate = False  # 防止重复日志
+        uvicorn_logger.addHandler(console_handler)
+        uvicorn_logger.addHandler(file_handler)
+        uvicorn_logger.addHandler(error_handler)
 
     # 配置 structlog
     structlog.configure(
