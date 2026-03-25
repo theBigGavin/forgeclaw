@@ -110,6 +110,8 @@ class PlannerService:
             "temperature": temperature,
         }
 
+        logger.debug("calling_llm", url=f"{self.llm_base_url}/chat/completions", model=self.llm_model)
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{self.llm_base_url}/chat/completions",
@@ -117,7 +119,11 @@ class PlannerService:
                 json=payload,
                 timeout=60.0,
             )
-            response.raise_for_status()
+            
+            if response.status_code != 200:
+                logger.error("llm_api_error", status_code=response.status_code, response=response.text)
+                response.raise_for_status()
+                
             data = response.json()
             return data["choices"][0]["message"]["content"]
 
