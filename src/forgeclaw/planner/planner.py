@@ -55,6 +55,8 @@ class PlannerService:
         
         # 锁定的工作流存储
         self._locked_workflows: dict[str, LockedWorkflow] = {}
+        # 草案缓存（用于 confirm）
+        self._draft_cache: dict[str, WorkflowDraft] = {}
 
     def _get_available_skills(self) -> list[SkillInfo]:
         """获取可用的 Skill 列表."""
@@ -187,11 +189,20 @@ class PlannerService:
 
             # 解析响应
             draft_data = self._parse_json_response(response)
+            
+            # 生成 draft ID 并存储
+            import shortuuid
+            draft_id = f"draft_{shortuuid.uuid()}"
+            draft_data["id"] = draft_id
+            
             draft = WorkflowDraft(**draft_data)
 
             # 如果 LLM 没有提供成本预估，补充一个
             if draft.cost_estimate is None:
                 draft.cost_estimate = await self._estimate_cost(draft)
+            
+            # 缓存 draft 供 confirm 使用
+            self._draft_cache[draft_id] = draft
 
             logger.info("planning_completed", workflow_name=draft.name, nodes_count=len(draft.nodes))
 
@@ -398,6 +409,30 @@ class PlannerService:
     async def list_locked(self) -> list[LockedWorkflow]:
         """列出所有锁定的工作流."""
         return list(self._locked_workflows.values())
+
+    async def confirm(self, draft_id: str, user_id: str | None = None) -> LockedWorkflow:
+        """确认并锁定工作流草案.
+        
+        Args:
+            draft_id: 草案 ID
+            user_id: 用户标识
+            
+        Returns:
+            锁定的工作流
+            
+        Raises:
+            ValueError: 如果 draft_id 不存在
+        """
+        draft = self._draft_cache.get(draft_id)
+        if not draft:
+            raise ValueError(f"Draft {draft_id} not found or expired")
+        
+        locked = await self.lock(draft, user_id)
+        
+        # 从缓存中移除已确认的 draft
+        del self._draft_cache[draft_id]
+        
+        return locked
 
     def draft_to_workflow_definition(self, draft: WorkflowDraft) -> dict[str, Any]:
         """将草案转换为工作流定义（用于执行引擎）."""

@@ -45,22 +45,41 @@ class CostEstimate(BaseModel):
     estimated_tokens: int = Field(description="预估 Token 数量")
     estimated_cost_usd: float = Field(description="预估成本 (USD)")
     estimated_time_seconds: int = Field(description="预估执行时间 (秒)")
+    estimated_time_minutes: int = Field(default=0, description="预估执行时间 (分钟)")
     breakdown: list[dict[str, Any]] = Field(default_factory=list, description="成本明细")
-
-
-class WorkflowDraft(BaseModel):
-    """工作流草案."""
-
-    name: str = Field(description="工作流名称")
-    description: str = Field(description="工作流描述")
-    version: str = Field(default="1.0.0", description="版本")
     
-    # 4W1H 分析
+    def model_post_init(self, __context: Any) -> None:
+        """计算分钟数."""
+        self.estimated_time_minutes = self.estimated_time_seconds // 60
+
+
+class Analysis4W1H(BaseModel):
+    """4W1H 分析结果."""
+    
     what: str = Field(description="要做什么")
     why: str = Field(description="为什么做")
     who: str = Field(description="涉及哪些 Skill")
     when: str = Field(description="执行时机")
     how: str = Field(description="如何执行")
+
+
+class WorkflowDraft(BaseModel):
+    """工作流草案."""
+
+    id: str = Field(default="", description="草案唯一标识")
+    name: str = Field(description="工作流名称")
+    description: str = Field(description="工作流描述")
+    version: str = Field(default="1.0.0", description="版本")
+    
+    # 4W1H 分析（兼容旧格式）
+    analysis: Analysis4W1H | None = Field(default=None, description="4W1H 分析")
+    
+    # 直接在 draft 上的 4W1H 字段（向后兼容）
+    what: str = Field(default="", description="要做什么")
+    why: str = Field(default="", description="为什么做")
+    who: str = Field(default="", description="涉及哪些 Skill")
+    when: str = Field(default="", description="执行时机")
+    how: str = Field(default="", description="如何执行")
     
     # 流程定义
     nodes: list[NodeDraft] = Field(default_factory=list, description="节点列表")
@@ -78,6 +97,15 @@ class WorkflowDraft(BaseModel):
     risk_notes: list[str] = Field(default_factory=list, description="风险说明")
 
 
+class RiskAssessment(BaseModel):
+    """风险评估."""
+    
+    type: str = Field(description="风险类型")
+    severity: str = Field(description="严重程度: low/medium/high")
+    description: str = Field(description="风险描述")
+    mitigation: str = Field(description="缓解措施")
+
+
 class PlanningResult(BaseModel):
     """规划结果."""
 
@@ -85,6 +113,7 @@ class PlanningResult(BaseModel):
     draft: WorkflowDraft | None = Field(default=None, description="工作流草案")
     error: str | None = Field(default=None, description="错误信息")
     raw_response: str | None = Field(default=None, description="LLM 原始响应")
+    risk_assessment: list[RiskAssessment] = Field(default_factory=list, description="风险评估")
 
 
 class UserFeedback(BaseModel):

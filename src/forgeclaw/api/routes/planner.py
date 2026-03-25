@@ -65,6 +65,19 @@ async def lock_workflow(request: LockRequest) -> LockedWorkflow:
     return locked
 
 
+@router.post("/confirm/{draft_id}", response_model=LockedWorkflow)
+async def confirm_workflow(draft_id: str, user_id: str | None = None) -> LockedWorkflow:
+    """确认并锁定工作流草案.
+    
+    根据 draft_id 查找缓存的草案并锁定。
+    """
+    try:
+        locked = await planner.confirm(draft_id, user_id)
+        return locked
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.get("/locked/{workflow_id}", response_model=LockedWorkflow)
 async def get_locked_workflow(workflow_id: str) -> LockedWorkflow:
     """获取锁定的工作流."""
