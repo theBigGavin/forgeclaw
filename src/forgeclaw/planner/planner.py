@@ -145,50 +145,54 @@ class PlannerService:
             result["description"] = source.get("description", "")
             result["version"] = source.get("version", "1.0.0")
         
-        # 4W1H 分析
-        if "analysis" in source:
-            analysis = source["analysis"]
+        # 4W1H 分析 - 支持 analysis_4w1h 和 analysis
+        analysis = source.get("analysis_4w1h") or source.get("analysis", {})
+        if analysis:
             result["what"] = analysis.get("what", "")
             result["why"] = analysis.get("why", "")
             result["who"] = analysis.get("who", "")
             result["when"] = analysis.get("when", "")
             result["how"] = analysis.get("how", "")
             result["analysis"] = analysis
-        elif "what" in source:
-            # 直接在 source 上
-            result["what"] = source.get("what", "")
-            result["why"] = source.get("why", "")
-            result["who"] = source.get("who", "")
-            result["when"] = source.get("when", "")
-            result["how"] = source.get("how", "")
         
-        # 节点和边
-        result["nodes"] = source.get("nodes", [])
-        result["edges"] = source.get("edges", [])
-        result["inputs"] = source.get("inputs", [])
-        result["outputs"] = source.get("outputs", [])
+        # 节点和边 - 支持 process_design 嵌套
+        process_design = source.get("process_design", {})
+        if process_design:
+            result["nodes"] = process_design.get("nodes", [])
+            result["edges"] = process_design.get("edges", [])
+        else:
+            result["nodes"] = source.get("nodes", [])
+            result["edges"] = source.get("edges", [])
         
-        # 成本预估
-        if "cost_estimate" in source:
-            ce = source["cost_estimate"]
-            if isinstance(ce, dict):
-                result["cost_estimate"] = {
-                    "estimated_tokens": ce.get("estimated_tokens", 1000),
-                    "estimated_cost_usd": ce.get("estimated_cost_usd", 0.01),
-                    "estimated_time_seconds": ce.get("estimated_time_seconds", 300),
-                }
+        # 输入输出 - 支持 input_output_definition 嵌套
+        io_def = source.get("input_output_definition", {})
+        if io_def:
+            result["inputs"] = io_def.get("inputs", [])
+            result["outputs"] = io_def.get("outputs", [])
+        else:
+            result["inputs"] = source.get("inputs", [])
+            result["outputs"] = source.get("outputs", [])
         
-        # 风险处理
-        risk_notes = source.get("risk_notes", [])
-        if isinstance(risk_notes, dict):
-            # 如果是字典，转换为列表
-            result["risk_notes"] = [f"{k}: {v}" for k, v in risk_notes.items()]
-        elif isinstance(risk_notes, list):
-            result["risk_notes"] = risk_notes
+        # 成本预估 - 支持 cost_estimation
+        cost = source.get("cost_estimation") or source.get("cost_estimate", {})
+        if isinstance(cost, dict):
+            result["cost_estimate"] = {
+                "estimated_tokens": cost.get("estimated_tokens", 1000),
+                "estimated_cost_usd": cost.get("estimated_cost_usd", 0.01),
+                "estimated_time_seconds": cost.get("estimated_time_seconds", 300),
+            }
+        
+        # 风险处理 - 支持 risk_notes 嵌套字典
+        risk_data = source.get("risk_notes", {})
+        if isinstance(risk_data, dict):
+            result["risk_level"] = risk_data.get("risk_level", "low")
+            result["risk_notes"] = risk_data.get("risk_notes", [])
+        elif isinstance(risk_data, list):
+            result["risk_notes"] = risk_data
+            result["risk_level"] = "low"
         else:
             result["risk_notes"] = []
-        
-        result["risk_level"] = source.get("risk_level", "low")
+            result["risk_level"] = "low"
         
         return result
 
