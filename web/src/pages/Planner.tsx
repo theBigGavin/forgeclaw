@@ -52,15 +52,22 @@ export default function Planner() {
 
     setConfirming(true)
     try {
+      console.log('Confirming draft:', result.draft.id)
       const response = await plannerApi.confirm(result.draft.id)
-      const workflowDef: WorkflowDefinition = response.data
+      console.log('Confirm response:', response.data)
       
+      // LockedWorkflow contains the draft, extract it
+      const workflowDef: WorkflowDefinition = response.data.draft || response.data
+      
+      console.log('Creating workflow:', workflowDef)
       await workflowsApi.create(workflowDef)
       toast.success('Workflow created and locked!')
       setResult(null)
       setGoal('')
-    } catch (error) {
-      toast.error('Failed to confirm plan')
+    } catch (error: any) {
+      console.error('Confirm failed:', error)
+      const message = error.response?.data?.detail || error.message || 'Unknown error'
+      toast.error(`Failed to confirm plan: ${message}`)
     } finally {
       setConfirming(false)
     }
