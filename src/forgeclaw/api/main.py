@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 # 首先加载环境变量（必须在导入 routes 之前）
 load_dotenv()
 
+# 配置日志（尽早配置）
+from forgeclaw.logging_config import configure_logging
+configure_logging()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -61,6 +65,39 @@ def create_app() -> FastAPI:
             "name": "ForgeClaw",
             "version": "0.1.0",
             "description": "确定性 AI Agent 编排平台",
+        }
+
+    @app.get("/logs")
+    async def get_logs(lines: int = 100, level: str = "all"):
+        """查看日志文件内容.
+        
+        Args:
+            lines: 返回最后多少行
+            level: 日志级别 (all, error, info)
+        """
+        from pathlib import Path
+        
+        log_dir = Path("./logs")
+        
+        if level == "error":
+            log_file = log_dir / "forgeclaw.error.log"
+        else:
+            log_file = log_dir / "forgeclaw.log"
+        
+        if not log_file.exists():
+            return {"logs": [], "file": str(log_file), "exists": False}
+        
+        # 读取最后 N 行
+        with open(log_file, "r", encoding="utf-8") as f:
+            all_lines = f.readlines()
+            last_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        
+        return {
+            "logs": last_lines,
+            "file": str(log_file),
+            "exists": True,
+            "total_lines": len(all_lines),
+            "returned_lines": len(last_lines),
         }
 
     return app
