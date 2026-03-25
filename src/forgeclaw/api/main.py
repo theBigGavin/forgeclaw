@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from forgeclaw.api.routes import assets, executions, memory, planner, scheduler, skills, workflows
 
@@ -24,6 +25,15 @@ def create_app() -> FastAPI:
         description="确定性 AI Agent 编排平台",
         version="0.1.0",
         lifespan=lifespan,
+    )
+
+    # 配置 CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # 允许所有来源（开发环境）
+        allow_credentials=True,
+        allow_methods=["*"],  # 允许所有 HTTP 方法
+        allow_headers=["*"],  # 允许所有请求头
     )
 
     # 注册路由
