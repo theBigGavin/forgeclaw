@@ -50,8 +50,8 @@ class PlannerService:
     ):
         self.skill_registry = skill_registry or SkillRegistry()
         self.llm_api_key = llm_api_key or os.getenv("OPENAI_API_KEY")
-        self.llm_base_url = llm_base_url or "https://api.openai.com/v1"
-        self.llm_model = llm_model
+        self.llm_base_url = llm_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        self.llm_model = llm_model or os.getenv("OPENAI_MODEL") or "gpt-4o"
         
         # 锁定的工作流存储
         self._locked_workflows: dict[str, LockedWorkflow] = {}
