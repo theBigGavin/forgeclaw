@@ -46,7 +46,7 @@ class PlannerService:
         skill_registry: SkillRegistry | None = None,
         llm_api_key: str | None = None,
         llm_base_url: str | None = None,
-        llm_model: str = "gpt-4o",
+        llm_model: str | None = None,
     ):
         self.skill_registry = skill_registry or SkillRegistry()
         self.llm_api_key = llm_api_key or os.getenv("OPENAI_API_KEY")
