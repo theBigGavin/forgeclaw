@@ -247,7 +247,10 @@ class PlannerService:
         Returns:
             规划结果
         """
-        logger.info("planning_workflow", goal=goal)
+        # 生成任务ID用于追踪
+        import shortuuid
+        task_id = f"plan_{shortuuid.uuid()}"
+        logger.info("planning_workflow_start", task_id=task_id, goal=goal, context=context)
 
         try:
             # 获取可用 Skill
@@ -263,19 +266,23 @@ class PlannerService:
             )
 
             # 调用 LLM
+            logger.debug("calling_llm_start", task_id=task_id, model=self.llm_model, prompt_length=len(user_prompt))
             response = await self._call_llm(
                 system_prompt=PLANNING_SYSTEM_PROMPT,
                 user_prompt=user_prompt,
                 temperature=0.3,
             )
+            logger.debug("calling_llm_end", task_id=task_id, response_length=len(response))
 
             # 解析响应
+            logger.debug("parsing_response", task_id=task_id)
             draft_data = self._parse_json_response(response)
+            logger.debug("response_parsed", task_id=task_id, keys=list(draft_data.keys()))
             
             # 生成 draft ID 并存储
-            import shortuuid
             draft_id = f"draft_{shortuuid.uuid()}"
             draft_data["id"] = draft_id
+            logger.debug("draft_created", task_id=task_id, draft_id=draft_id)
             
             draft = WorkflowDraft(**draft_data)
 
@@ -286,7 +293,7 @@ class PlannerService:
             # 缓存 draft 供 confirm 使用
             PlannerService._draft_cache[draft_id] = draft
 
-            logger.info("planning_completed", workflow_name=draft.name, nodes_count=len(draft.nodes))
+            logger.info("planning_completed", task_id=task_id, workflow_name=draft.name, nodes_count=len(draft.nodes), draft_id=draft_id)
 
             return PlanningResult(
                 success=True,
@@ -295,10 +302,13 @@ class PlannerService:
             )
 
         except Exception as e:
-            logger.error("planning_failed", error=str(e))
+            import traceback
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            stack_trace = traceback.format_exc()
+            logger.error("planning_failed", task_id=task_id, error=error_msg, stack_trace=stack_trace)
             return PlanningResult(
                 success=False,
-                error=str(e),
+                error=error_msg,
             )
 
     async def modify(
