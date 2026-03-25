@@ -39,3 +39,4 @@ Thumbs.db
 .forgeclaw/
 *.log
 .env
+web/node_modules/
