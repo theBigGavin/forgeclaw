@@ -21,11 +21,14 @@ from forgeclaw.api.routes import assets, executions, memory, planner, scheduler,
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理."""
+    import structlog
+    logger = structlog.get_logger()
+    
     # 启动
-    print("🚀 ForgeClaw starting...")
+    logger.info("forgeclaw_starting", lifecycle="startup")
     yield
     # 关闭
-    print("🛑 ForgeClaw shutting down...")
+    logger.info("forgeclaw_shutting_down", lifecycle="shutdown")
 
 
 def create_app() -> FastAPI:
